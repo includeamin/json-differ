@@ -1,15 +1,15 @@
-use std::collections::HashMap;
 use serde_json::Value;
 use serde_json_path::JsonPath;
+use std::collections::HashMap;
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Operation {
     Add,
     Change,
     Delete,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 struct Delta {
     operation: Operation,
     path: String,
@@ -29,7 +29,7 @@ fn diff(
     match a {
         Value::Object(map) => {
             for (key, value) in map.iter() {
-                if current_path.len() == 0 {
+                if current_path.is_empty() {
                     current_path.push(format!("$.{}", key));
                 } else {
                     current_path.push(key.to_string());
@@ -51,15 +51,15 @@ fn diff(
         _ => {
             let mut path = String::new();
             for (index, value) in current_path.iter().enumerate() {
-                if value.contains("[") {
+                if value.contains('[') {
                     path.push_str(value);
-                } else {
-                    if index == 0 {
-                        path.push_str(value);
-                    } else {
-                        path.push_str(format!(".{}", value).as_str());
-                    }
+                    continue;
                 }
+                if index == 0 {
+                    path.push_str(value);
+                    continue;
+                }
+                path.push_str(format!(".{}", value).as_str());
             }
 
             if seen.contains_key(path.as_str()) {
@@ -108,9 +108,9 @@ fn diff(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs;
     use std::path::PathBuf;
-    use super::*;
 
     #[test]
     fn diff_success() {
@@ -118,12 +118,12 @@ mod tests {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("src/testdata/small_json_1.json");
         let data = fs::read_to_string(d).expect("Unable to read file");
-        let json_a: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        let json_a = serde_json::from_str(&data).expect("Unable to parse");
 
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("src/testdata/small_json_2.json");
         let data = fs::read_to_string(d).expect("Unable to read file");
-        let json_b: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        let json_b = serde_json::from_str(&data).expect("Unable to parse");
 
         let mut a_paths: Vec<String> = Vec::new();
         let mut deltas: Vec<Delta> = Vec::new();
