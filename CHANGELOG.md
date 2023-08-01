@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+### Bug Fixes
+
+- Fix tests
+
 ### Miscellaneous Tasks
 
 - Init the first version.
