@@ -17,16 +17,89 @@ struct Delta {
     new_value: Value,
 }
 
+struct Diff {
+    deltas: Vec<Delta>,
+    paths: Vec<String>,
+    a: Value,
+    b: Value,
+}
+
+impl Default for Diff {
+    fn default() -> Self {
+        Diff {
+            deltas: Vec::new(),
+            paths: Vec::new(),
+            a: Value::Null,
+            b: Value::Null,
+        }
+    }
+}
+
+impl Diff {
+    pub fn new_from_json_values(a: Value, b: Value) -> Diff {
+        Diff {
+            a,
+            b,
+            deltas: Vec::new(),
+            paths: Vec::new(),
+        }
+    }
+
+    /// Returns the deltas between the two values
+    fn get_deltas(&self) -> &Vec<Delta> {
+        &self.deltas
+    }
+
+    /// Returns the paths that were changed
+    fn get_paths(&self) -> &Vec<String> {
+        &self.paths
+    }
+
+    /// Returns true if there are any changes between the two values
+    fn has_changes(&self) -> bool {
+        !self.deltas.is_empty()
+    }
+
+    /// Returns true if the two values are equal
+    fn diff(&mut self) -> &Self {
+        let mut paths: Vec<String> = Vec::new();
+        let mut current_path: Vec<String> = Vec::new();
+        let mut seen: HashMap<String, bool> = HashMap::new();
+
+        diff(
+            &self.a,
+            &self.b,
+            &mut current_path,
+            &mut paths,
+            &mut self.deltas,
+            &mut seen,
+            false,
+        );
+
+        diff(
+            &self.b,
+            &self.a,
+            &mut current_path,
+            &mut paths,
+            &mut self.deltas,
+            &mut seen,
+            true,
+        );
+
+        self
+    }
+}
+
 fn diff(
-    a: &Value,
-    b: &Value,
+    left: &Value,
+    right: &Value,
     current_path: &mut Vec<String>,
     paths: &mut Vec<String>,
     deltas: &mut Vec<Delta>,
     seen: &mut HashMap<String, bool>,
     reverse: bool,
 ) {
-    match a {
+    match left {
         Value::Object(map) => {
             for (key, value) in map.iter() {
                 if current_path.is_empty() {
@@ -34,7 +107,7 @@ fn diff(
                 } else {
                     current_path.push(key.to_string());
                 }
-                diff(value, b, current_path, paths, deltas, seen, reverse);
+                diff(value, right, current_path, paths, deltas, seen, reverse);
                 current_path.pop();
             }
         }
@@ -44,7 +117,7 @@ fn diff(
                     0 => current_path.push(format!("$[{}]", index)),
                     _ => current_path.push(format!("[{}]", index)),
                 }
-                diff(value, b, current_path, paths, deltas, seen, reverse);
+                diff(value, right, current_path, paths, deltas, seen, reverse);
                 current_path.pop();
             }
         }
@@ -67,16 +140,16 @@ fn diff(
             }
 
             let parsed_path = JsonPath::parse(path.as_str()).unwrap();
-            let b_value = parsed_path.query(b).first();
-            match b_value {
+            let left_value = parsed_path.query(right).first();
+            match left_value {
                 // the value exists in both, so we need to check if it's the same
-                Some(b_value) => {
-                    if a != b_value {
+                Some(value) => {
+                    if left != value {
                         deltas.push(Delta {
                             operation: Operation::Change,
                             path: path.clone(),
-                            old_value: a.clone(),
-                            new_value: b_value.clone(),
+                            old_value: left.clone(),
+                            new_value: value.clone(),
                         });
                     }
                 }
@@ -87,13 +160,13 @@ fn diff(
                             operation: Operation::Add,
                             path: path.clone(),
                             old_value: Value::Null,
-                            new_value: a.clone(),
+                            new_value: left.clone(),
                         });
                     } else {
                         deltas.push(Delta {
                             operation: Operation::Delete,
                             path: path.clone(),
-                            old_value: a.clone(),
+                            old_value: left.clone(),
                             new_value: Value::Null,
                         });
                     }
@@ -109,11 +182,12 @@ fn diff(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
 
     #[test]
-    fn diff_success() {
+    fn diff_from_serde_values_success() {
         // given
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("src/testdata/small_json_1.json");
@@ -125,35 +199,65 @@ mod tests {
         let data = fs::read_to_string(d).expect("Unable to read file");
         let json_b = serde_json::from_str(&data).expect("Unable to parse");
 
-        let mut a_paths: Vec<String> = Vec::new();
-        let mut deltas: Vec<Delta> = Vec::new();
-        let mut a_current_path: Vec<String> = Vec::new();
-        let mut seen: HashMap<String, bool> = HashMap::new();
-
-        // when
-        diff(
-            &json_a,
-            &json_b,
-            &mut a_current_path,
-            &mut a_paths,
-            &mut deltas,
-            &mut seen,
-            false,
-        );
-
-        diff(
-            &json_b,
-            &json_a,
-            &mut a_current_path,
-            &mut a_paths,
-            &mut deltas,
-            &mut seen,
-            true,
-        );
+        let mut differ = Diff::new_from_json_values(json_a, json_b);
+        let deltas = differ.diff().get_deltas();
 
         // then
         assert_eq!(deltas.len(), 4, "Expected 4 deltas, got {}", deltas.len());
 
         assert_eq!(deltas[0].operation, Operation::Change);
+    }
+
+    #[test]
+    fn diff_from_json_value() {
+        let a = serde_json::from_str(
+            r#"
+         {
+           "username": "admin",
+           "password": "admin",
+           "email": "foo@bar.com",
+           "name": "Foo Bar",
+           "address": "Dhaka",
+           "roles": [
+             "admin"
+           ],
+           "status": "active",
+           "created_at": "2019-12-12T12:12:12.000Z",
+           "nested": {
+             "foo": "bar"
+           }
+         }
+        "#,
+        )
+        .unwrap();
+
+        let b = serde_json::from_str(
+            r#"
+         {
+           "username": "admin",
+           "password": "admin",
+           "email": "foo@bar.com",
+           "name": "Foo Bar",
+           "address": "Dhaka",
+           "phone": "123456789",
+           "roles": [
+             "admin"
+           ],
+           "status": "active",
+           "created_at": "2019-12-12T12:12:13.000Z",
+           "nested": {
+             "foo": "bar"
+           }
+         }
+        "#,
+        )
+        .unwrap();
+
+        let mut differ = Diff::new_from_json_values(a, b);
+        let deltas = differ.diff().get_deltas();
+
+        println!("deltas: {:?}", deltas);
+        assert_eq!(deltas.len(), 1, "Expected 1 deltas, got {}", deltas.len());
+        assert_eq!(deltas[0].operation, Operation::Delete);
     }
 }
