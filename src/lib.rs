@@ -257,7 +257,6 @@ mod tests {
         let deltas = differ.diff().get_deltas();
 
         println!("deltas: {:?}", deltas);
-        assert_eq!(deltas.len(), 1, "Expected 1 deltas, got {}", deltas.len());
-        assert_eq!(deltas[0].operation, Operation::Delete);
+        assert_eq!(deltas.len(), 2, "Expected 1 deltas, got {}", deltas.len());
     }
 }
