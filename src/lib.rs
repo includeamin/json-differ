@@ -20,7 +20,6 @@ pub struct Delta {
 #[derive(Debug, PartialEq)]
 pub struct Diff {
     deltas: Vec<Delta>,
-    paths: Vec<String>,
     left: Value,
     right: Value,
 }
@@ -29,7 +28,6 @@ impl Default for Diff {
     fn default() -> Self {
         Diff {
             deltas: Vec::new(),
-            paths: Vec::new(),
             left: Value::Null,
             right: Value::Null,
         }
@@ -42,7 +40,6 @@ impl Diff {
             left: a,
             right: b,
             deltas: Vec::new(),
-            paths: Vec::new(),
         }
     }
 
@@ -56,14 +53,11 @@ impl Diff {
         self.deltas.iter().find(|delta| delta.path == path)
     }
 
-    /// Returns the paths that were changed
-    pub fn get_paths(&self) -> &Vec<String> {
-        &self.paths
-    }
-
     /// Returns true if the given path has changed
     pub fn has_path_changed(&self, path: &str, operation: Operation) -> bool {
-        self.deltas.iter().any(|delta| delta.path == path && delta.operation == operation)
+        self.deltas
+            .iter()
+            .any(|delta| delta.path == path && delta.operation == operation)
     }
 
     /// Returns true if there are any changes between the two values
@@ -73,40 +67,23 @@ impl Diff {
 
     /// Returns true if the two values are equal
     pub fn diff(&mut self) -> &Self {
-        let mut paths: Vec<String> = Vec::new();
         let mut seen: HashMap<String, bool> = HashMap::new();
         let mut deltas: Vec<Delta> = Vec::new();
 
-        self.do_diff(
-            &self.left,
-            &self.right,
-            &mut paths,
-            &mut deltas,
-            &mut seen,
-            false,
-        );
+        self.do_diff(&self.left, &self.right, &mut deltas, &mut seen, false);
 
-        self.do_diff(
-            &self.right,
-            &self.left,
-            &mut paths,
-            &mut deltas,
-            &mut seen,
-            true,
-        );
+        self.do_diff(&self.right, &self.left, &mut deltas, &mut seen, true);
 
         self.deltas = deltas;
 
         self
     }
 
-
     #[allow(clippy::too_many_arguments)]
     fn do_diff(
         &self,
         left: &Value,
         right: &Value,
-        paths:  &mut Vec<String>,
         deltas: &mut Vec<Delta>,
         seen: &mut HashMap<String, bool>,
         reverse: bool,
@@ -187,7 +164,6 @@ impl Diff {
                     }
 
                     seen.insert(path_str.clone(), true);
-                    paths.push(path_str);
                 }
             }
         }
@@ -249,7 +225,7 @@ mod tests {
          }
         "#,
         )
-            .unwrap();
+        .unwrap();
 
         let b = serde_json::from_str(
             r#"
@@ -277,12 +253,17 @@ mod tests {
          }
         "#,
         )
-            .unwrap();
+        .unwrap();
 
         let mut differ = Diff::new_from_json_values(a, b);
         let differ = differ.diff();
 
-        assert_eq!(differ.get_deltas().len(), 3, "Expected 1 deltas, got {}", differ.get_deltas().len());
+        assert_eq!(
+            differ.get_deltas().len(),
+            3,
+            "Expected 1 deltas, got {}",
+            differ.get_deltas().len()
+        );
         assert!(differ.has_changes());
         assert!(differ.has_path_changed("$.phone", Operation::Add));
         assert!(differ.has_path_changed("$.created_at", Operation::Change));
@@ -296,10 +277,18 @@ mod tests {
         let delta = differ.get_delta_by_path("$.created_at").unwrap();
         assert_eq!(delta.operation, Operation::Change);
         assert_eq!(delta.path, "$.created_at");
-        assert_eq!(delta.old_value, Value::String("2019-12-12T12:12:12.000Z".to_string()));
-        assert_eq!(delta.new_value, Value::String("2019-12-12T12:12:13.000Z".to_string()));
+        assert_eq!(
+            delta.old_value,
+            Value::String("2019-12-12T12:12:12.000Z".to_string())
+        );
+        assert_eq!(
+            delta.new_value,
+            Value::String("2019-12-12T12:12:13.000Z".to_string())
+        );
 
-        let delta = differ.get_delta_by_path("$.nested.nested2.nested3.foo").unwrap();
+        let delta = differ
+            .get_delta_by_path("$.nested.nested2.nested3.foo")
+            .unwrap();
         assert_eq!(delta.operation, Operation::Change);
         assert_eq!(delta.path, "$.nested.nested2.nested3.foo");
         assert_eq!(delta.old_value, Value::String("bar".to_string()));
