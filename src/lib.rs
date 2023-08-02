@@ -79,7 +79,6 @@ impl Diff {
         self
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn do_diff(
         &self,
         left: &Value,
