@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use serde_json::Value;
 use serde_json_path::JsonPath;
-use crate::structs::{Delta, Operation};
+use crate::delta::{Delta, Operation};
 
 #[derive(Debug, PartialEq)]
 pub struct Differ {
