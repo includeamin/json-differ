@@ -1,6 +1,6 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json, Map};
 use crate::delta::Operation;
-use serde_json::Value::String;
+
 
 fn set_property_by_path(json: &mut Value, path: &str, value: &mut Value, operation: Operation, force: bool) {
     let mut current = json;
@@ -39,14 +39,14 @@ fn set_property_by_path(json: &mut Value, path: &str, value: &mut Value, operati
                 let tmp = &current_key.clone();
                 current = &mut obj[tmp];
                 if is_last_key {
-                    process_op(current, key, value, &operation, force);
+                    process_op(current, key, value, current_index, &operation, force);
                 }
             }
 
             Value::Null => {}
             Value::Bool(_) => {}
             Value::Number(_) => {}
-            String(str_val) => {
+            Value::String(str_val) => {
                 println!("string: {}", str_val);
             }
             Value::Array(arr) => {
@@ -59,61 +59,139 @@ fn set_property_by_path(json: &mut Value, path: &str, value: &mut Value, operati
 
                 current = &mut arr[current_index];
                 if is_last_key {
-                    process_op(current, key, value, &operation, force);
+                    process_op(current, key, value, current_index, &operation, force);
                 }
             }
         }
     }
 }
 
-fn process_op(value: &mut Value, key: &str, set_to: &Value, operation: &Operation, force: bool) {
+fn process_op(value: &mut Value, key: &str, set_to: &Value, index: usize, operation: &Operation, force: bool) {
     println!("process_op");
     match value {
         Value::Object(obj) => {
-            match operation {
-                Operation::Add => {
-                    let has_attr = obj.contains_key(key);
-                    if has_attr && !force {
-                        eprintln!("attribute already exists");
-                    } else {
-                        obj.insert(key.to_string(), set_to.clone());
-                    }
-                }
-                Operation::Change => {
-                    let has_attr = obj.contains_key(key);
-                    if !has_attr {
-                        eprintln!("attribute does not exist");
-                    } else {
-                        obj.insert(key.to_string(), set_to.clone());
-                    }
-                }
-                Operation::Delete => {
-                    let has_attr = obj.contains_key(key);
-                    if !has_attr {
-                        eprintln!("attribute does not exist");
-                    } else {
-                        obj.remove(key);
-                    }
-                }
-            }
+            process_object(key, set_to, operation, force, obj);
         }
         Value::Null => {
             println!("null");
+            match operation {
+                Operation::Add => {
+                    *value = set_to.clone();
+                }
+                Operation::Change => {
+                    *value = set_to.clone();
+                }
+                Operation::Delete => {
+                    eprintln!("cannot delete null");
+                }
+            }
         }
         Value::Bool(bool_val) => {
             println!("bool: {}", bool_val);
+            match operation {
+                Operation::Add => {
+                    eprintln!("cannot add to bool");
+                }
+                Operation::Change => {
+                    *value = set_to.clone();
+                }
+                Operation::Delete => {
+                    eprintln!("cannot delete bool");
+                }
+            }
         }
         Value::Number(number_val) => {
             println!("number: {}", number_val);
+            match operation {
+                Operation::Add => {
+                    eprintln!("cannot add to number");
+                }
+                Operation::Change => {
+                    *value = set_to.clone();
+                }
+                Operation::Delete => {
+                    eprintln!("cannot delete number");
+                }
+            }
         }
-        String(str_val) => {
+        Value::String(str_val) => {
             println!("string: {}", str_val);
+            match operation {
+                Operation::Add => {
+                    eprintln!("cannot add to string");
+                }
+                Operation::Change => {
+                    *value = set_to.clone();
+                }
+                Operation::Delete => {
+                    eprintln!("cannot delete string");
+                }
+            }
         }
         Value::Array(arr) => {
             println!("array: {:?}", arr);
+            match operation {
+                Operation::Add => {
+                    if arr.len() <= index {
+                        eprintln!("index out of bounds");
+                        return;
+                    }
+
+                    // check if array has any value at index
+                    arr.get(index).map(|_| {
+                        eprintln!("index already has value");
+                    });
+                }
+                Operation::Change => {
+                    if arr.len() <= index {
+                        eprintln!("index out of bounds");
+                        return;
+                    }
+
+                    arr[index] = set_to.clone();
+                }
+                Operation::Delete => {
+                    if arr.len() <= index {
+                        eprintln!("index out of bounds");
+                        return;
+                    }
+
+                    arr.remove(index);
+                }
+            }
         }
     }
 }
+
+fn process_object(key: &str, set_to: &Value, operation: &Operation, force: bool, obj: &mut Map<String, Value>) {
+    match operation {
+        Operation::Add => {
+            let has_attr = obj.contains_key(key);
+            if has_attr && !force {
+                eprintln!("attribute already exists");
+            } else {
+                obj.insert(key.to_string(), set_to.clone());
+            }
+        }
+        Operation::Change => {
+            let has_attr = obj.contains_key(key);
+            if !has_attr {
+                eprintln!("attribute does not exist");
+            } else {
+                obj.insert(key.to_string(), set_to.clone());
+            }
+        }
+        Operation::Delete => {
+            let has_attr = obj.contains_key(key);
+            if !has_attr {
+                eprintln!("attribute does not exist");
+            } else {
+                obj.remove(key);
+            }
+        }
+    }
+}
+
 //
 // pub struct Patcher {
 //     pub base: Value,
