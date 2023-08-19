@@ -9,6 +9,7 @@ fn set_property_by_path(json: &mut Value, path: &str, value: &mut Value, operati
     let mut current_index: usize = 0;
     let mut current_key: String = String::new();
 
+
     for (index, key) in keys.enumerate() {
         println!("key: {}", key);
         if key == "$" {
@@ -32,87 +33,129 @@ fn set_property_by_path(json: &mut Value, path: &str, value: &mut Value, operati
                     current_key = current_key[..start.unwrap()].to_string();
                 }
 
-                if !obj.contains_key(current_key.as_str()) {
+                if !obj.contains_key(current_key.as_str()) && !is_last_key {
                     obj.insert(current_key.to_string(), json!({}));
                 }
 
-                let tmp = &current_key.clone();
-                current = &mut obj[tmp];
-                println!("current: {:?}", current);
+                if is_last_key {
+                    let tmp = &current_key.clone();
+                    // println!("current_key: {}", current_key);
+                    // obj[tmp] = value.clone();
+                    match operation {
+                        Operation::Add => {
+                            if obj.contains_key(current_key.as_str()) {
+                                if force {
+                                    obj[tmp] = value.clone();
+                                } else {
+                                    return Err("key already exists");
+                                }
+                            } else {
+                                obj.insert(current_key.to_string(), value.clone());
+                            }
+                        }
+                        Operation::Change => {
+                            if obj.contains_key(current_key.as_str()) {
+                                obj[tmp] = value.clone();
+                            } else {
+                                return Err("key does not exist");
+                            }
+                        }
+                        Operation::Delete => {
+                            if obj.contains_key(current_key.as_str()) {
+                                obj.remove(current_key.as_str());
+                            } else {
+                                return Err("key does not exist");
+                            }
+                        }
+                    }
+                    return Ok(());
+                } else {
+                    let tmp = &current_key.clone();
+                    current = &mut obj[tmp];
+                }
             }
 
-            Value::Null => {
-                println!("null");
-            }
-            Value::Bool(bool_val) => {
-                println!("bool: {}", bool_val);
-            }
-            Value::Number(number_val) => {
-                println!("number: {}", number_val);
-            }
-            Value::String(str_val) => {
-                println!("string: {}", str_val);
-            }
             Value::Array(arr) => {
                 println!("array: {:?}", arr);
                 if arr.len() <= current_index {
                     return Err("index out of bounds");
-                    // eprintln!("index out of bounds");
-                    // return;
                 }
-                if is_last_key {}
 
                 current = &mut arr[current_index];
                 let array = current[&current_key].as_array_mut().unwrap();
+
+                if !is_last_key {
+                    continue;
+                }
+
+
+                match operation {
+                    Operation::Add => {
+                        if array.len() < current_index {
+                            return Err("index out of bounds");
+                        }
+                        let value_at_index = array.get(current_index);
+                        match value_at_index {
+                            None => {
+                                array.insert(current_index, value.clone());
+                            }
+                            Some(_) => {
+                                if force {
+                                    array.insert(current_index, value.clone());
+                                } else {
+                                    return Err("index already has value");
+                                }
+                            }
+                        }
+                    }
+                    Operation::Change => {
+                        if array.len() < current_index {
+                            return Err("index out of bounds");
+                        }
+
+                        let value_at_index = array.get(current_index);
+                        match value_at_index {
+                            None => {
+                                if force {
+                                    array.insert(current_index, value.clone());
+                                } else {
+                                    return Err("index already has value");
+                                }
+                            }
+                            Some(_) => {
+                                array[current_index] = value.clone();
+                            }
+                        }
+                    }
+                    Operation::Delete => {
+                        if array.len() < current_index {
+                            return Err("index out of bounds");
+                        }
+                        current[&current_key].as_array_mut().unwrap().remove(current_index);
+                    }
+                }
+            }
+
+            Value::Number(num) => {
+                println!("number: {:?}", num);
                 if is_last_key {
                     match operation {
                         Operation::Add => {
-                            if array.len() < current_index {
-
-                            }
-
-                            let value_at_index = array.get(current_index);
-                            match value_at_index {
-                                None => {
-                                    array.insert(current_index, value.clone());
-                                }
-                                Some(_) => {
-                                    if force {
-                                        array.insert(current_index, value.clone());
-                                    } else {
-                                        return Err("index already has value");
-                                    }
-                                }
-                            }
+                            return Err("cannot add value to number");
                         }
                         Operation::Change => {
-                            if array.len() < current_index {
-                                return Err("index out of bounds")
-                            }
-
-                            let value_at_index = array.get(current_index);
-                            match value_at_index {
-                                None => {
-                                    if force {
-                                        array.insert(current_index, value.clone());
-                                    } else {
-                                        return Err("index already has value");
-                                    }
-                                }
-                                Some(_) => {
-                                    array[current_index] = value.clone();
-                                }
-                            }
+                            println!("here");
+                            *current = value.clone();
                         }
                         Operation::Delete => {
-                            if array.len() < current_index {
-                                return Err("index out of bounds");
-                            }
-                            current[&current_key].as_array_mut().unwrap().remove(current_index);
+                            return Err("cannot delete value of number");
                         }
                     }
                 }
             }
+            Value::Null => {}
+            Value::Bool(_) => {}
+            Value::String(_) => {}
         }
     }
 
