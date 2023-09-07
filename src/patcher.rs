@@ -1,11 +1,5 @@
 use serde_json::{Value, json};
-
-#[derive(Debug)]
-pub enum Operation {
-    Add,
-    Change,
-    Delete,
-}
+use crate::delta::{Delta, Operation};
 
 fn get_key(key: &str) -> String {
     if !key.contains('[') {
@@ -19,34 +13,19 @@ fn get_key(key: &str) -> String {
 fn set_property_by_path(
     json: &mut Value,
     path: &str,
-    value: &mut Value,
+    value: &Value,
     operation: Operation,
     force: bool,
 ) -> Result<(), &'static str> {
     let mut current = json;
-    let mut keys = path.split('.');
-    let mut current_key: String = String::new();
-    let mut current_index: usize = 0;
+    let keys = path.split('.');
+    let mut current_index: usize = usize::default();
     let mut enum_keys = keys.clone().enumerate();
-    let mut is_array = false;
-    let mut is_last_key = false;
     loop {
         let next_key = enum_keys.next();
         match next_key {
             None => {
                 match current {
-                    Value::Null => {
-                        println!("null: {:?}", current);
-                    }
-                    Value::Bool(_) => {
-                        println!("bool: {:?}", current);
-                    }
-                    Value::Number(_) => {
-                        println!("number: {:?}", current);
-                    }
-                    Value::String(_) => {
-                        println!("string: {:?}", current);
-                    }
                     Value::Array(arr) => {
                         match operation {
                             Operation::Add => {
@@ -91,9 +70,9 @@ fn set_property_by_path(
                     continue;
                 }
 
-                current_key = get_key(key);
-                is_array = key.contains('[');
-                is_last_key = enum_keys.clone().next().is_none();
+                let current_key = get_key(key);
+                let is_array = key.contains('[');
+                let is_last_key = enum_keys.clone().next().is_none();
 
                 if let Value::Object(obj) = current {
                     if is_last_key && !is_array {
@@ -135,20 +114,32 @@ fn set_property_by_path(
     }
 }
 
+
+pub fn patch(base: Value, deltas: Vec<Delta>) -> Value {
+    let base_value = &mut base.clone();
+
+    for delta in deltas {
+        set_property_by_path(base_value, delta.path.as_str(), &delta.new_value, delta.operation, false).unwrap()
+    }
+
+    base_value.clone()
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
     use serde_json::Value::Null;
-    use crate::patcher::{Operation, set_property_by_path};
+    use crate::delta::Delta;
+    use crate::patcher::{Operation, patch, set_property_by_path};
 
     #[test]
     fn test_patch_add_list() {
         let mut base_json = json!({});
         let path = "$.list";
-        let mut value = json!([1,2,3]);
+        let value = json!([1,2,3]);
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -160,10 +151,10 @@ mod tests {
     fn test_patch_add_element_to_list() {
         let mut base_json = json!({});
         let path = "$.list[0]";
-        let mut value = json!(1);
+        let value = json!(1);
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -171,9 +162,9 @@ mod tests {
         }));
 
         let path = "$.list[0]";
-        let mut value = json!(2);
+        let value = json!(2);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Change, false,
+            &mut base_json, path, &value, Operation::Change, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -182,9 +173,9 @@ mod tests {
 
 
         let path = "$.list[1]";
-        let mut value = json!(3);
+        let value = json!(3);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -192,9 +183,9 @@ mod tests {
         }));
 
         let path = "$.list[1]";
-        let mut value = json!(Null);
+        let value = json!(Null);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -202,9 +193,9 @@ mod tests {
         }));
 
         let path = "$.list[0]";
-        let mut value = json!(Null);
+        let value = json!(Null);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({
@@ -212,9 +203,9 @@ mod tests {
         }));
 
         let path = "$.list";
-        let mut value = json!(Null);
+        let value = json!(Null);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
 
         assert_eq!(base_json, json!({}));
@@ -224,22 +215,22 @@ mod tests {
     fn test_crud_number() {
         let mut base_json = json!({});
         let path = "$.age";
-        let mut value = json!(1);
+        let value = json!(1);
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
         assert_eq!(base_json, json!({"age": 1}));
 
-        let mut value = json!(2);
+        let value = json!(2);
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Change, false,
+            &mut base_json, path, &value, Operation::Change, false,
         ).unwrap();
         assert_eq!(base_json, json!({"age": 2}));
 
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
         assert_eq!(base_json, json!({}));
     }
@@ -248,22 +239,22 @@ mod tests {
     fn test_crud_string() {
         let mut base_json = json!({});
         let path = "$.first_name";
-        let mut value = json!("first name");
+        let value = json!("first name");
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
         assert_eq!(base_json, json!({"first_name": "first name"}));
 
-        let mut value = json!("changed name");
+        let value = json!("changed name");
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Change, false,
+            &mut base_json, path, &value, Operation::Change, false,
         ).unwrap();
         assert_eq!(base_json, json!({"first_name": "changed name"}));
 
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
         assert_eq!(base_json, json!({}));
     }
@@ -272,22 +263,68 @@ mod tests {
     fn test_crud_nested_json() {
         let mut base_json = json!({});
         let path = "$.gdpr.first_name";
-        let mut value = json!("first name");
+        let value = json!("first name");
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Add, false,
+            &mut base_json, path, &value, Operation::Add, false,
         ).unwrap();
         assert_eq!(base_json, json!({"gdpr": {"first_name": "first name"}}));
 
-        let mut value = json!("changed name");
+        let value = json!("changed name");
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Change, false,
+            &mut base_json, path, &value, Operation::Change, false,
         ).unwrap();
         assert_eq!(base_json, json!({"gdpr": {"first_name": "changed name"}}));
 
         set_property_by_path(
-            &mut base_json, path, &mut value, Operation::Delete, false,
+            &mut base_json, path, &value, Operation::Delete, false,
         ).unwrap();
         assert_eq!(base_json, json!({"gdpr":{}}));
+    }
+
+    #[test]
+    fn test_path() {
+        let deltas = vec![
+            Delta {
+                operation: Operation::Add,
+                path: "$.age".parse().unwrap(),
+                old_value: json!(Null),
+                new_value: json!(1),
+            },
+            Delta {
+                operation: Operation::Add,
+                path: "$.personal_information.first_name".parse().unwrap(),
+                old_value: json!(Null),
+                new_value: json!("first name"),
+            },
+            Delta {
+                operation: Operation::Change,
+                path: "$.age".parse().unwrap(),
+                old_value: json!(Null),
+                new_value: json!(20),
+            },
+            Delta {
+                operation: Operation::Add,
+                path: "$.tags".parse().unwrap(),
+                old_value: json!(Null),
+                new_value: json!(["test","test1"]),
+            },
+            Delta {
+                operation: Operation::Change,
+                path: "$.tags[1]".parse().unwrap(),
+                old_value: json!(Null),
+                new_value: json!("test2"),
+            },
+        ];
+
+        let patched = patch(json!({}), deltas);
+
+        assert_eq!(patched, json!(
+            {
+                "age":20 ,
+                "personal_information": {"first_name": "first name"},
+                "tags":["test","test2"]
+            }
+        ))
     }
 }
