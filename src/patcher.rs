@@ -1,8 +1,7 @@
-use std::env::current_exe;
 use serde_json::{Value, json};
 
 #[derive(Debug)]
-enum Operation {
+pub enum Operation {
     Add,
     Change,
     Delete,
@@ -97,6 +96,23 @@ fn set_property_by_path(
                 is_last_key = enum_keys.clone().next().is_none();
 
                 if let Value::Object(obj) = current {
+                    if is_last_key && !is_array {
+                        return match operation {
+                            Operation::Add => {
+                                obj.insert(current_key.to_string(), value.clone());
+                                Ok(())
+                            }
+                            Operation::Change => {
+                                obj.insert(current_key.to_string(), value.clone());
+                                Ok(())
+                            }
+                            Operation::Delete => {
+                                obj.remove(current_key.as_str());
+                                Ok(())
+                            }
+                        };
+                    }
+
                     if is_array {
                         let start = key.find('[');
                         let end = key.find(']');
@@ -111,13 +127,8 @@ fn set_property_by_path(
                         obj.insert(current_key.to_string(), json!({}));
                     }
 
-                    if is_last_key && obj[current_key.as_str()] == json!({}) {
-                        obj.insert(current_key.to_string(), value.clone());
-                        return Ok(());
-                    }
 
                     current = &mut obj[current_key.as_str()];
-                    println!("{:}", current);
                 }
             }
         }
@@ -207,5 +218,76 @@ mod tests {
         ).unwrap();
 
         assert_eq!(base_json, json!({}));
+    }
+
+    #[test]
+    fn test_crud_number() {
+        let mut base_json = json!({});
+        let path = "$.age";
+        let mut value = json!(1);
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Add, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"age": 1}));
+
+        let mut value = json!(2);
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Change, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"age": 2}));
+
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Delete, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({}));
+    }
+
+    #[test]
+    fn test_crud_string() {
+        let mut base_json = json!({});
+        let path = "$.first_name";
+        let mut value = json!("first name");
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Add, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"first_name": "first name"}));
+
+        let mut value = json!("changed name");
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Change, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"first_name": "changed name"}));
+
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Delete, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({}));
+    }
+
+    #[test]
+    fn test_crud_nested_json() {
+        let mut base_json = json!({});
+        let path = "$.gdpr.first_name";
+        let mut value = json!("first name");
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Add, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"gdpr": {"first_name": "first name"}}));
+
+        let mut value = json!("changed name");
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Change, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"gdpr": {"first_name": "changed name"}}));
+
+        set_property_by_path(
+            &mut base_json, path, &mut value, Operation::Delete, false,
+        ).unwrap();
+        assert_eq!(base_json, json!({"gdpr":{}}));
     }
 }
