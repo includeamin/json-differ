@@ -9,7 +9,6 @@
     "admin"
   ],
   "status": "active",
-  "created_at": "2019-12-12T12:12:12.000Z",
   "nested": {
     "foo": "bar1",
     "nested": {
