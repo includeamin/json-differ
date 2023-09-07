@@ -8,7 +8,6 @@ mod tests {
 
     #[test]
     fn diff_from_serde_values_success() {
-        // given
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("src/testdata/small_json_1.json");
         let data = fs::read_to_string(d).expect("Unable to read file");
@@ -22,10 +21,13 @@ mod tests {
         let mut differ = Differ::new_from_json_values(json_a, json_b);
         let deltas = differ.diff().get_deltas();
 
-        // then
-        assert_eq!(deltas.len(), 4, "Expected 4 deltas, got {}", deltas.len());
 
+        assert_eq!(deltas.len(), 5, "Expected 4 deltas, got {}", deltas.len());
         assert_eq!(deltas[0].operation, Operation::Change);
+        assert_eq!(deltas[1].operation, Operation::Change);
+        assert_eq!(deltas[2].operation, Operation::Change);
+        assert_eq!(deltas[3].operation, Operation::Delete);
+        assert_eq!(deltas[4].operation, Operation::Add);
     }
 
     #[test]
