@@ -163,30 +163,35 @@ mod tests {
                 path: "$.age".parse().unwrap(),
                 old_value: json!(Null),
                 new_value: json!(1),
+                hash: String::default(),
             },
             Delta {
                 operation: Operation::Add,
                 path: "$.personal_information.first_name".parse().unwrap(),
                 old_value: json!(Null),
                 new_value: json!("first name"),
+                hash: String::default(),
             },
             Delta {
                 operation: Operation::Change,
                 path: "$.age".parse().unwrap(),
                 old_value: json!(Null),
                 new_value: json!(20),
+                hash: String::default(),
             },
             Delta {
                 operation: Operation::Add,
                 path: "$.tags".parse().unwrap(),
                 old_value: json!(Null),
                 new_value: json!(["test","test1"]),
+                hash: String::default(),
             },
             Delta {
                 operation: Operation::Change,
                 path: "$.tags[1]".parse().unwrap(),
                 old_value: json!(Null),
                 new_value: json!("test2"),
+                hash: String::default(),
             },
         ];
 

@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use serde_json::Value;
 use serde_json_path::JsonPath;
 use crate::delta::{Delta, Operation};
+use crate::utils::calculate_hash;
 
 #[derive(Debug, PartialEq)]
 pub struct Differ {
@@ -120,29 +121,39 @@ impl Differ {
                     match left_value {
                         Some(value) => {
                             if left != value {
-                                deltas.push(Delta {
+                                let mut delta = Delta {
                                     operation: Operation::Change,
                                     path: path_str.clone(),
                                     old_value: left.clone(),
                                     new_value: value.clone(),
-                                });
+                                    hash: String::default(),
+                                };
+
+                                delta.hash = calculate_hash(&delta).to_string();
+                                deltas.push(delta);
                             }
                         }
                         None => {
                             if reverse {
-                                deltas.push(Delta {
+                                let mut delta = Delta {
                                     operation: Operation::Add,
                                     path: path_str.clone(),
                                     old_value: Value::Null,
                                     new_value: left.clone(),
-                                });
+                                    hash: String::default(),
+                                };
+                                delta.hash = calculate_hash(&delta).to_string();
+                                deltas.push(delta);
                             } else {
-                                deltas.push(Delta {
+                                let mut delta = Delta {
                                     operation: Operation::Delete,
                                     path: path_str.clone(),
                                     old_value: left.clone(),
                                     new_value: Value::Null,
-                                });
+                                    hash: String::default(),
+                                };
+                                delta.hash = calculate_hash(&delta).to_string();
+                                deltas.push(delta);
                             }
                         }
                     }

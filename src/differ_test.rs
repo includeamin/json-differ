@@ -24,6 +24,7 @@ mod tests {
 
         assert_eq!(deltas.len(), 5, "Expected 4 deltas, got {}", deltas.len());
         assert_eq!(deltas[0].operation, Operation::Change);
+        assert_eq!(deltas[0].hash, "5503739816316876366");
         assert_eq!(deltas[1].operation, Operation::Change);
         assert_eq!(deltas[2].operation, Operation::Change);
         assert_eq!(deltas[3].operation, Operation::Delete);
