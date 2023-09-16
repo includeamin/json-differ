@@ -1,7 +1,8 @@
 use std::hash::{Hash, Hasher};
 use serde_json::Value;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Operation {
     Add,
     Change,
@@ -24,7 +25,7 @@ impl Hash for Operation {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Delta {
     pub operation: Operation,
     pub path: String,
