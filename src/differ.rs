@@ -1,10 +1,11 @@
 use std::collections::{HashMap, VecDeque};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json_path::JsonPath;
 use crate::delta::{Delta, Operation};
 use crate::utils::calculate_hash;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Differ {
     deltas: Vec<Delta>,
     left: Value,
