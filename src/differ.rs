@@ -1,9 +1,9 @@
-use std::collections::{HashMap, VecDeque};
+use crate::delta::{Delta, Operation};
+use crate::utils::calculate_hash;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json_path::JsonPath;
-use crate::delta::{Delta, Operation};
-use crate::utils::calculate_hash;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Differ {
@@ -11,7 +11,6 @@ pub struct Differ {
     left: Value,
     right: Value,
 }
-
 
 impl Default for Differ {
     fn default() -> Self {
@@ -68,6 +67,7 @@ impl Differ {
         self
     }
 
+    /// Recursively compares the two values and adds the deltas to the given vector
     fn do_diff(
         &self,
         left: &Value,

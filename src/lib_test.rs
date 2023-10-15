@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod lib_tests {
-    use serde_json::json;
     use crate::differ::Differ;
     use crate::patcher::patch;
+    use serde_json::json;
 
     #[test]
     fn test_lib() {

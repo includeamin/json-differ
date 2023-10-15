@@ -1,5 +1,5 @@
-use serde_json::{Value, json};
 use crate::delta::{Delta, Operation};
+use serde_json::{json, Value};
 
 fn get_key(key: &str) -> String {
     if !key.contains('[') {
@@ -26,37 +26,35 @@ pub(crate) fn set_property_by_path(
         match next_key {
             None => {
                 match current {
-                    Value::Array(arr) => {
-                        match operation {
-                            Operation::Add => {
-                                let value_at_index = arr.get(current_index);
-                                match value_at_index {
-                                    None => {
+                    Value::Array(arr) => match operation {
+                        Operation::Add => {
+                            let value_at_index = arr.get(current_index);
+                            match value_at_index {
+                                None => {
+                                    arr.insert(current_index, value.clone());
+                                }
+                                Some(_) => {
+                                    if force {
                                         arr.insert(current_index, value.clone());
-                                    }
-                                    Some(_) => {
-                                        if force {
-                                            arr.insert(current_index, value.clone());
-                                        } else {
-                                            return Err("index already has value");
-                                        }
+                                    } else {
+                                        return Err("index already has value");
                                     }
                                 }
-                            }
-                            Operation::Change => {
-                                if arr.len() <= current_index {
-                                    return Err("index out of bounds");
-                                }
-                                arr[current_index] = value.clone();
-                            }
-                            Operation::Delete => {
-                                if arr.len() <= current_index {
-                                    return Err("index out of bounds");
-                                }
-                                arr.remove(current_index);
                             }
                         }
-                    }
+                        Operation::Change => {
+                            if arr.len() <= current_index {
+                                return Err("index out of bounds");
+                            }
+                            arr[current_index] = value.clone();
+                        }
+                        Operation::Delete => {
+                            if arr.len() <= current_index {
+                                return Err("index out of bounds");
+                            }
+                            arr.remove(current_index);
+                        }
+                    },
 
                     _ => {
                         return Ok(());
@@ -95,9 +93,7 @@ pub(crate) fn set_property_by_path(
                     if is_array {
                         let start = key.find('[');
                         let end = key.find(']');
-                        let index: usize = key[start.unwrap() + 1..end.unwrap()]
-                            .parse()
-                            .unwrap();
+                        let index: usize = key[start.unwrap() + 1..end.unwrap()].parse().unwrap();
                         current_index = index;
                     }
                     if is_array && !obj.contains_key(current_key.as_str()) {
@@ -106,14 +102,12 @@ pub(crate) fn set_property_by_path(
                         obj.insert(current_key.to_string(), json!({}));
                     }
 
-
                     current = &mut obj[current_key.as_str()];
                 }
             }
         }
     }
 }
-
 
 pub fn patch(base: Value, deltas: &Vec<Delta>) -> Value {
     let base_value = &mut base.clone();
@@ -124,7 +118,9 @@ pub fn patch(base: Value, deltas: &Vec<Delta>) -> Value {
             delta.path.as_str(),
             &delta.new_value,
             delta.operation.clone(),
-            false).unwrap()
+            false,
+        )
+        .unwrap()
     }
 
     base_value.clone()

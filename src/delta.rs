@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use serde::{Serialize, Deserialize};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Operation {
@@ -15,9 +15,7 @@ impl Hash for Operation {
             Operation::Add => {
                 "Add".hash(state);
             }
-            Operation::Change => {
-                "Change".hash(state)
-            }
+            Operation::Change => "Change".hash(state),
             Operation::Delete => {
                 "Delete".hash(state);
             }
