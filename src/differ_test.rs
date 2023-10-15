@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::path::PathBuf;
-    use serde_json::Value;
     use crate::delta::Operation;
     use crate::differ::Differ;
+    use serde_json::Value;
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn diff_from_serde_values_success() {
@@ -20,7 +20,6 @@ mod tests {
 
         let mut differ = Differ::new_from_json_values(json_a, json_b);
         let deltas = differ.diff().get_deltas();
-
 
         assert_eq!(deltas.len(), 5, "Expected 4 deltas, got {}", deltas.len());
         assert_eq!(deltas[0].operation, Operation::Change);
@@ -58,7 +57,7 @@ mod tests {
          }
         "#,
         )
-            .unwrap();
+        .unwrap();
 
         let b = serde_json::from_str(
             r#"
@@ -86,7 +85,7 @@ mod tests {
          }
         "#,
         )
-            .unwrap();
+        .unwrap();
 
         let mut differ = Differ::new_from_json_values(a, b);
         let differ = differ.diff();

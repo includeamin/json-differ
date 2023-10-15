@@ -1,7 +1,7 @@
-pub mod patcher;
-pub mod differ;
 pub mod delta;
-mod patcher_test;
+pub mod differ;
 mod differ_test;
 mod lib_test;
+pub mod patcher;
+mod patcher_test;
 mod utils;
