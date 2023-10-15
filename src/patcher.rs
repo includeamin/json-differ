@@ -1,127 +1,206 @@
 use crate::delta::{Delta, Operation};
+use crate::errors::ProcessError;
+use crate::utils::{analyse_path, change_element, insert_element, remove_element};
 use serde_json::{json, Value};
 
-fn get_key(key: &str) -> String {
-    if !key.contains('[') {
-        return key.to_string();
-    }
-
-    let start = key.find('[');
-    key[..start.unwrap()].to_string()
+#[derive(Clone, Copy)]
+pub struct PatchOptions {
+    pub force: bool,
+    pub omit_empty: bool,
 }
 
-pub(crate) fn set_property_by_path(
-    json: &mut Value,
-    path: &str,
-    value: &Value,
-    operation: Operation,
-    force: bool,
-) -> Result<(), &'static str> {
-    let mut current = json;
-    let keys = path.split('.');
-    let mut current_index: usize = usize::default();
-    let mut enum_keys = keys.clone().enumerate();
-    loop {
-        let next_key = enum_keys.next();
-        match next_key {
-            None => {
-                match current {
-                    Value::Array(arr) => match operation {
-                        Operation::Add => {
-                            let value_at_index = arr.get(current_index);
-                            match value_at_index {
-                                None => {
-                                    arr.insert(current_index, value.clone());
-                                }
-                                Some(_) => {
-                                    if force {
-                                        arr.insert(current_index, value.clone());
-                                    } else {
-                                        return Err("index already has value");
-                                    }
-                                }
-                            }
-                        }
-                        Operation::Change => {
-                            if arr.len() <= current_index {
-                                return Err("index out of bounds");
-                            }
-                            arr[current_index] = value.clone();
-                        }
-                        Operation::Delete => {
-                            if arr.len() <= current_index {
-                                return Err("index out of bounds");
-                            }
-                            arr.remove(current_index);
-                        }
-                    },
+impl Default for PatchOptions {
+    fn default() -> Self {
+        PatchOptions::new()
+    }
+}
 
-                    _ => {
-                        return Ok(());
-                    }
-                }
-
-                return Ok(());
-            }
-            Some((_, key)) => {
-                if key == "$" {
-                    continue;
-                }
-
-                let current_key = get_key(key);
-                let is_array = key.contains('[');
-                let is_last_key = enum_keys.clone().next().is_none();
-
-                if let Value::Object(obj) = current {
-                    if is_last_key && !is_array {
-                        return match operation {
-                            Operation::Add => {
-                                obj.insert(current_key.to_string(), value.clone());
-                                Ok(())
-                            }
-                            Operation::Change => {
-                                obj.insert(current_key.to_string(), value.clone());
-                                Ok(())
-                            }
-                            Operation::Delete => {
-                                obj.remove(current_key.as_str());
-                                Ok(())
-                            }
-                        };
-                    }
-
-                    if is_array {
-                        let start = key.find('[');
-                        let end = key.find(']');
-                        let index: usize = key[start.unwrap() + 1..end.unwrap()].parse().unwrap();
-                        current_index = index;
-                    }
-                    if is_array && !obj.contains_key(current_key.as_str()) {
-                        obj.insert(current_key.to_string(), json!([]));
-                    } else if !obj.contains_key(current_key.as_str()) {
-                        obj.insert(current_key.to_string(), json!({}));
-                    }
-
-                    current = &mut obj[current_key.as_str()];
-                }
-            }
+impl PatchOptions {
+    pub fn new() -> Self {
+        PatchOptions {
+            force: false,
+            omit_empty: false,
         }
     }
+
+    pub fn force(mut self, force: bool) -> Self {
+        self.force = force;
+        self
+    }
+
+    pub fn omit_empty(mut self, omit_empty: bool) -> Self {
+        self.omit_empty = omit_empty;
+        self
+    }
 }
 
-pub fn patch(base: Value, deltas: &Vec<Delta>) -> Value {
+pub fn patch(base: Value, deltas: &Vec<Delta>, options: PatchOptions) -> Value {
     let base_value = &mut base.clone();
 
     for delta in deltas {
-        set_property_by_path(
+        set_by_path(
             base_value,
             delta.path.as_str(),
             &delta.new_value,
             delta.operation.clone(),
-            false,
+            options,
         )
         .unwrap()
     }
 
     base_value.clone()
+}
+
+pub(crate) fn set_by_path(
+    json: &mut Value,
+    path: &str,
+    value: &Value,
+    operation: Operation,
+    options: PatchOptions,
+) -> Result<(), ProcessError> {
+    let mut current = json;
+    let path_analysis = analyse_path(path);
+    let mut paths = path_analysis.iter().enumerate();
+    loop {
+        let path_item = paths.next();
+
+        if path_item.is_none() {
+            return Ok(());
+        }
+
+        let path_item = path_item.unwrap();
+
+        let (_index, item) = path_item;
+
+        if item.key == "$" {
+            continue;
+        }
+
+        if item.is_last && current.is_array() {
+            if !item.is_array {
+                let arr = current.as_array_mut().unwrap();
+                let mut obj = json!({});
+                obj.as_object_mut()
+                    .unwrap()
+                    .insert(item.key.as_str().to_string(), value.clone());
+                arr.push(obj);
+                return Ok(());
+            }
+
+            return Err(ProcessError::UnknownError {
+                message: "Unknown error".to_string(),
+            });
+        }
+
+        // when we are in the last item, we need to do the actual operation
+        // we have two cases here:
+        // 1. the current item is an array
+        // 2. the current item is an object
+        if item.is_last && current.is_object() {
+            // the last item is in an array
+            // so we need to do the operation on the array
+            if item.is_array {
+                return match operation {
+                    Operation::Add => {
+                        // if the element was not in the object, we need to create it
+                        let object = current.as_object_mut().unwrap();
+                        if !object.contains_key(item.key.as_str()) {
+                            object.insert(item.key.as_str().to_string(), Value::Array(vec![]));
+                        }
+                        current = &mut current[item.key.as_str()];
+                        insert_element(
+                            current.as_array_mut().unwrap(),
+                            &item.indices,
+                            value.clone(),
+                        );
+                        Ok(())
+                    }
+                    Operation::Change => {
+                        current = &mut current[item.key.as_str()];
+                        change_element(
+                            current.as_array_mut().unwrap(),
+                            &item.indices,
+                            value.clone(),
+                        );
+                        Ok(())
+                    }
+                    Operation::Delete => {
+                        current = &mut current[item.key.as_str()];
+                        remove_element(current.as_array_mut().unwrap(), &item.indices, options);
+                        Ok(())
+                    }
+                };
+            }
+
+            // the last item is an object
+            // so we need to do the operation on the object
+            return match operation {
+                Operation::Add => {
+                    // if the element was not in the object, we need to create it
+                    let object = current.as_object_mut().unwrap();
+                    if !object.contains_key(item.key.as_str()) {
+                        object.insert(item.key.as_str().to_string(), Value::Null);
+                    }
+
+                    current[item.key.as_str()] = value.clone();
+                    Ok(())
+                }
+                Operation::Change => {
+                    current[item.key.as_str()] = value.clone();
+                    Ok(())
+                }
+                Operation::Delete => {
+                    current.as_object_mut().unwrap().remove(item.key.as_str());
+                    Ok(())
+                }
+            };
+        }
+
+        // this logic is just for moving the current pointer to the right place
+        match current {
+            Value::Object(obj) => {
+                if item.is_array {
+                    // if the element was not in the object, we need to create it
+                    if !obj.contains_key(item.key.as_str()) {
+                        obj.insert(item.key.as_str().to_string(), json!([]));
+                    }
+
+                    current = &mut obj[item.key.as_str()];
+
+                    for (_, _index) in item.indices.iter().enumerate() {
+                        let array = current.as_array_mut().unwrap();
+
+                        if (array.is_empty() || *_index > array.len())
+                            && operation == Operation::Add
+                        {
+                            if item.indices.len() == 1 {
+                                array.push(json!({}));
+                                continue;
+                            }
+
+                            array.push(json!([]));
+                            continue;
+                        }
+                        current = &mut current[*_index];
+                    }
+
+                    continue;
+                }
+
+                // if the element was not in the object, we need to create it
+                if !obj.contains_key(item.key.as_str()) {
+                    obj.insert(item.key.as_str().to_string(), json!({}));
+                }
+
+                current = &mut obj[item.key.as_str()];
+
+                continue;
+            }
+            _ => {
+                return Err(ProcessError::UnknownError {
+                    message: "Unknown error".to_string(),
+                });
+            }
+        }
+    }
 }
