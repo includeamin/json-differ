@@ -58,16 +58,34 @@ impl Differ {
         let mut seen: HashMap<String, bool> = HashMap::new();
         let mut deltas: Vec<Delta> = Vec::new();
 
-        self.do_diff(&self.left, &self.right, &mut deltas, &mut seen, false);
+        let mut calculated_hash: Vec<String> = vec![];
 
-        self.do_diff(&self.right, &self.left, &mut deltas, &mut seen, true);
+        self.do_diff(
+            &self.left,
+            &self.right,
+            &mut deltas,
+            &mut seen,
+            false,
+            &mut calculated_hash,
+        );
+
+        self.do_diff(
+            &self.right,
+            &self.left,
+            &mut deltas,
+            &mut seen,
+            true,
+            &mut calculated_hash,
+        );
 
         self.deltas = deltas;
+
+        self.deltas.reverse();
 
         self
     }
 
-    /// Recursively compares the two values and adds the deltas to the given vector
+    /// Compares the two values and adds the deltas to the given vector
     fn do_diff(
         &self,
         left: &Value,
@@ -75,6 +93,7 @@ impl Differ {
         deltas: &mut Vec<Delta>,
         seen: &mut HashMap<String, bool>,
         reverse: bool,
+        calculated_hash: &mut Vec<String>,
     ) {
         let current_path = Vec::new();
         let mut stack: VecDeque<(&Value, &Value, Vec<String>)> = VecDeque::new();
@@ -118,8 +137,8 @@ impl Differ {
                     }
 
                     let parsed_path = JsonPath::parse(path_str.as_str()).unwrap();
-                    let left_value = parsed_path.query(right).first();
-                    match left_value {
+                    let right_value = parsed_path.query(right).first();
+                    match right_value {
                         Some(value) => {
                             if left != value {
                                 let mut delta = Delta {
@@ -131,6 +150,7 @@ impl Differ {
                                 };
 
                                 delta.hash = calculate_hash(&delta).to_string();
+                                calculated_hash.push(delta.hash.clone());
                                 deltas.push(delta);
                             }
                         }
@@ -144,18 +164,21 @@ impl Differ {
                                     hash: String::default(),
                                 };
                                 delta.hash = calculate_hash(&delta).to_string();
+                                calculated_hash.push(delta.hash.clone());
                                 deltas.push(delta);
-                            } else {
-                                let mut delta = Delta {
-                                    operation: Operation::Delete,
-                                    path: path_str.clone(),
-                                    old_value: left.clone(),
-                                    new_value: Value::Null,
-                                    hash: String::default(),
-                                };
-                                delta.hash = calculate_hash(&delta).to_string();
-                                deltas.push(delta);
+                                continue;
                             }
+
+                            let mut delta = Delta {
+                                operation: Operation::Delete,
+                                path: path_str.clone(),
+                                old_value: left.clone(),
+                                new_value: Value::Null,
+                                hash: String::default(),
+                            };
+                            delta.hash = calculate_hash(&delta).to_string();
+                            calculated_hash.push(delta.hash.clone());
+                            deltas.push(delta);
                         }
                     }
 

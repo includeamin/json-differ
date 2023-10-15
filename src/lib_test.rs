@@ -15,7 +15,7 @@ mod lib_tests {
 
         let new_base = json!({});
         let deltas = diff.get_deltas();
-        let patched = patch(new_base, deltas);
+        let patched = patch(new_base, deltas, Default::default());
 
         assert_eq!(patched, json!({"age": 20, "tags":["test"]}))
     }
