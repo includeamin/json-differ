@@ -8,6 +8,4 @@ A simple tool to compare two json files and print the differences.
 
 # TODO
 
-- [ ] support object in nested array
-- [ ] support nested array--> object --> nested array
-- [ ] hash validation
+- [ ] checksum validation
