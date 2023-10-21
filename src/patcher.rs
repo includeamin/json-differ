@@ -1,6 +1,8 @@
 use crate::delta::{Delta, Operation};
 use crate::errors::ProcessError;
-use crate::utils::{analyse_path, change_element, insert_element, remove_element};
+use crate::utils::{
+    analyse_path, change_element, insert_element, remove_element, remove_empty_levels,
+};
 use serde_json::{json, Value};
 
 #[derive(Clone, Copy)]
@@ -46,6 +48,10 @@ pub fn patch(base: Value, deltas: &Vec<Delta>, options: PatchOptions) -> Value {
             options,
         )
         .unwrap()
+    }
+
+    if options.omit_empty {
+        remove_empty_levels(base_value);
     }
 
     base_value.clone()
