@@ -2,7 +2,9 @@ use crate::patcher::PatchOptions;
 use regex::Regex;
 use serde_json::{json, Value};
 use std::collections::hash_map::DefaultHasher;
+
 use std::hash::{Hash, Hasher};
+
 
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -178,4 +180,43 @@ fn get_key(key: &str) -> String {
 
     let start = key.find('[');
     key[..start.unwrap()].to_string()
+}
+
+pub fn remove_empty_levels(json: &mut Value) {
+    match json {
+        Value::Object(obj) => {
+            let keys: Vec<String> = obj.keys().cloned().collect();
+            for key in keys {
+                let mut sub_json = obj.remove(&key).unwrap();
+                remove_empty_levels(&mut sub_json);
+                if is_empty(&sub_json) {
+                    obj.remove(&key);
+                } else {
+                    obj.insert(key, sub_json);
+                }
+            }
+        }
+        Value::Array(arr) => {
+            let mut i = 0;
+            while i < arr.len() {
+                let mut sub_json = arr.remove(i);
+                remove_empty_levels(&mut sub_json);
+                if !is_empty(&sub_json) {
+                    arr.insert(i, sub_json);
+                    i += 1;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_empty(json: &Value) -> bool {
+    match json {
+        Value::Null => true,
+        Value::String(s) if s.is_empty() => true,
+        Value::Array(arr) if arr.is_empty() => true,
+        Value::Object(obj) if obj.is_empty() => true,
+        _ => false,
+    }
 }

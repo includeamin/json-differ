@@ -498,4 +498,37 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_patcher_omit_empty() {
+        let base = json!({
+            "a": [
+                [
+                    {
+                        "b": [
+                            [
+                                "1"
+                            ]
+                        ]
+                    }
+                ]
+            ]
+        });
+
+        let deltas = vec![Delta {
+            operation: Delete,
+            path: "$.a[0][0].b[0][1]".parse().unwrap(),
+            old_value: json!("1"),
+            new_value: Null,
+            hash: "4437996877722456100".parse().unwrap(),
+        }];
+
+        let patcher = patch(
+            base,
+            &deltas,
+            PatchOptions::default().force(false).omit_empty(true),
+        );
+
+        assert_eq!(patcher, json!({}));
+    }
 }
