@@ -5,7 +5,3 @@
 A simple tool to compare two json files and print the differences.
 
 **NOTE**: the library is under development and **not ready** for production use.
-
-# TODO
-
-- [ ] checksum validation
