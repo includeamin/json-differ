@@ -2,7 +2,7 @@
 mod tests {
     use crate::delta::Delta;
     use crate::delta::Operation::{Add, Change, Delete};
-    use crate::patcher::{patch, set_by_path, PatchOptions};
+    use crate::patcher::{patch, patch_by_path, PatchOptions};
     use serde_json::json;
     use serde_json::Value::Null;
 
@@ -12,7 +12,7 @@ mod tests {
         let path = "$.list";
         let value = json!([1, 2, 3]);
 
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -28,7 +28,7 @@ mod tests {
         let path = "$.list[0]";
         let value = json!(1);
 
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -39,7 +39,7 @@ mod tests {
 
         let path = "$.list[0]";
         let value = json!(2);
-        set_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -50,7 +50,7 @@ mod tests {
 
         let path = "$.list[1]";
         let value = json!(3);
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -61,7 +61,7 @@ mod tests {
 
         let path = "$.list[1]";
         let value = json!(Null);
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -72,7 +72,7 @@ mod tests {
 
         let path = "$.list[0]";
         let value = json!(Null);
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
 
         assert_eq!(
             base_json,
@@ -83,7 +83,7 @@ mod tests {
 
         let path = "$.list";
         let value = json!(Null);
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
 
         assert_eq!(base_json, json!({}));
     }
@@ -94,14 +94,14 @@ mod tests {
         let path = "$.age";
         let value = json!(1);
 
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"age": 1}));
 
         let value = json!(2);
-        set_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"age": 2}));
 
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({}));
     }
 
@@ -111,14 +111,14 @@ mod tests {
         let path = "$.first_name";
         let value = json!("first name");
 
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"first_name": "first name"}));
 
         let value = json!("changed name");
-        set_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"first_name": "changed name"}));
 
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({}));
     }
 
@@ -128,15 +128,15 @@ mod tests {
         let path = "$.gdpr.first_name";
         let value = json!("first name");
 
-        set_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Add, PatchOptions::new()).unwrap();
 
         assert_eq!(base_json, json!({"gdpr": {"first_name": "first name"}}));
 
         let value = json!("changed name");
-        set_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Change, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"gdpr": {"first_name": "changed name"}}));
 
-        set_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
+        patch_by_path(&mut base_json, path, &value, Delete, PatchOptions::new()).unwrap();
         assert_eq!(base_json, json!({"gdpr":{}}));
     }
 
@@ -351,7 +351,7 @@ mod tests {
         let path = "$.a[0][0].b[0][1]";
         let value = json!("3");
 
-        let result = set_by_path(&mut json, path, &value, Change, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Change, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(
@@ -375,7 +375,7 @@ mod tests {
         let path = "$.a[0][0].b[0][2]";
         let value = json!("4");
 
-        let result = set_by_path(&mut json, path, &value, Add, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Add, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(
@@ -400,7 +400,7 @@ mod tests {
         let path = "$.a[0][0].c";
         let value = json!("test");
 
-        let result = set_by_path(&mut json, path, &value, Add, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Add, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(
@@ -426,7 +426,7 @@ mod tests {
         let path = "$.a[0][0].c";
         let value = json!("test2");
 
-        let result = set_by_path(&mut json, path, &value, Change, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Change, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(
@@ -452,7 +452,7 @@ mod tests {
         let path = "$.a[0][0].c";
         let value = json!(Null);
 
-        let result = set_by_path(&mut json, path, &value, Delete, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Delete, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(
@@ -477,7 +477,7 @@ mod tests {
         let path = "$.a[0][0].b[0][1]";
         let value = json!(Null);
 
-        let result = set_by_path(&mut json, path, &value, Delete, PatchOptions::new());
+        let result = patch_by_path(&mut json, path, &value, Delete, PatchOptions::new());
 
         assert!(result.is_ok());
         assert_eq!(

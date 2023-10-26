@@ -40,7 +40,7 @@ pub fn patch(base: Value, deltas: &Vec<Delta>, options: PatchOptions) -> Value {
     let base_value = &mut base.clone();
 
     for delta in deltas {
-        set_by_path(
+        patch_by_path(
             base_value,
             delta.path.as_str(),
             &delta.new_value,
@@ -57,7 +57,7 @@ pub fn patch(base: Value, deltas: &Vec<Delta>, options: PatchOptions) -> Value {
     base_value.clone()
 }
 
-pub(crate) fn set_by_path(
+pub(crate) fn patch_by_path(
     json: &mut Value,
     path: &str,
     value: &Value,
@@ -93,7 +93,7 @@ pub(crate) fn set_by_path(
                 return Ok(());
             }
 
-            return Err(ProcessError::UnknownError {
+            return Err(ProcessError::Unknown {
                 message: "Unknown error".to_string(),
             });
         }
@@ -203,7 +203,7 @@ pub(crate) fn set_by_path(
                 continue;
             }
             _ => {
-                return Err(ProcessError::UnknownError {
+                return Err(ProcessError::Unknown {
                     message: "Unknown error".to_string(),
                 });
             }

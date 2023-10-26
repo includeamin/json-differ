@@ -5,7 +5,6 @@ use std::collections::hash_map::DefaultHasher;
 
 use std::hash::{Hash, Hasher};
 
-
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
@@ -64,38 +63,6 @@ pub fn analyse_path(json_path: &str) -> Vec<PathItem> {
     }
 
     path_items
-}
-
-#[warn(dead_code)]
-pub fn create_multi_dimensional_vec(dim_count: usize) -> Value {
-    let mut vec = Vec::new();
-    let mut current_vec = &mut vec;
-    for _ in 0..dim_count {
-        current_vec.push(Value::Array(Vec::new()));
-        current_vec = current_vec.last_mut().unwrap().as_array_mut().unwrap();
-    }
-
-    Value::Array(vec)
-}
-
-pub fn access_element<'a>(array: &'a Vec<Value>, indices: &[usize]) -> Option<&'a Value> {
-    if indices.is_empty() {
-        return None;
-    }
-
-    let index = indices.first().unwrap();
-
-    if *index >= array.len() {
-        return None;
-    }
-
-    let element = &array[*index];
-
-    if let Value::Array(arr) = element {
-        return access_element(arr, &indices[1..]);
-    }
-
-    Some(element)
 }
 
 pub fn insert_element(array: &mut Vec<Value>, indices: &[usize], value: Value) {
