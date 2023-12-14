@@ -17,3 +17,7 @@ lint:
 lint-fix:
 	@echo "lint fix code"
 	@cargo clippy --all-targets --allow-dirty --allow-staged --all-features --fix -- -D warnings
+
+test:
+	@echo "test code"
+	@cargo test --all-targets --all-features
